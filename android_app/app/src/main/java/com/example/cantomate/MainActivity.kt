@@ -1,28 +1,64 @@
-package com.example.cantomate
+﻿package com.example.cantomate
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import okhttp3.*
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.example.cantomate.slang.ui.SlangOfTheDayScreen
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import okhttp3.sse.EventSource
 import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
@@ -40,11 +76,75 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            // IG 暗黑模式：纯黑背景
             MaterialTheme(colorScheme = darkColorScheme(background = Color.Black)) {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    ChatScreen(client)
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    CantoMateApp(client = client)
                 }
+            }
+        }
+    }
+}
+
+private sealed class AppDestination(
+    val route: String,
+    val label: String,
+    val iconText: String
+) {
+    data object Chat : AppDestination(
+        route = "chat",
+        label = "对话 Chat",
+        iconText = "聊"
+    )
+
+    data object Slang : AppDestination(
+        route = "slang",
+        label = "每日一词 Slang",
+        iconText = "词"
+    )
+}
+
+@Composable
+private fun CantoMateApp(client: OkHttpClient) {
+    val navController = rememberNavController()
+    val destinations = listOf(AppDestination.Chat, AppDestination.Slang)
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                destinations.forEach { destination ->
+                    NavigationBarItem(
+                        selected = currentRoute == destination.route,
+                        onClick = {
+                            navController.navigate(destination.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        icon = { Text(destination.iconText) },
+                        label = { Text(destination.label) }
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = AppDestination.Chat.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(AppDestination.Chat.route) {
+                ChatScreen(client = client)
+            }
+            composable(AppDestination.Slang.route) {
+                SlangOfTheDayScreen()
             }
         }
     }
@@ -59,30 +159,26 @@ fun ChatScreen(client: OkHttpClient) {
     var expanded by remember { mutableStateOf(false) }
 
     val scenarios = mapOf(
-        "cha_chaan_teng" to Pair("旺角茶餐廳 ☕", "👨‍🍳"),
-        "taxi" to Pair("紅磡的士 🚕", "🚖"),
-        "market" to Pair("深水埗街市 🥬", "🧑‍🌾")
+        "cha_chaan_teng" to Pair("茶餐厅", "🍞"),
+        "taxi" to Pair("的士", "🚕"),
+        "market" to Pair("街市", "🛒")
     )
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // --- 1. IG 风格顶部导航栏 ---
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 48.dp, bottom = 12.dp, start = 16.dp, end = 16.dp),
+                .padding(top = 24.dp, bottom = 12.dp, start = 16.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 返回按钮占位
-            Text("〈", color = Color.White, fontSize = 24.sp, modifier = Modifier.padding(end = 16.dp))
+            Text("⟵", color = Color.White, fontSize = 24.sp, modifier = Modifier.padding(end = 16.dp))
 
-            // 头像与名字 (点击唤出场景切换)
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .clickable { expanded = true },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 圆形头像
                 Box(
                     modifier = Modifier
                         .size(36.dp)
@@ -94,11 +190,15 @@ fun ChatScreen(client: OkHttpClient) {
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text(scenarios[currentScenario]!!.first, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text("CantoMate 粵語陪練 〉", color = Color.Gray, fontSize = 12.sp)
+                    Text(
+                        scenarios[currentScenario]!!.first,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    Text("CantoMate 粤语练习", color = Color.Gray, fontSize = 12.sp)
                 }
 
-                // 下拉菜单
                 DropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
@@ -116,13 +216,12 @@ fun ChatScreen(client: OkHttpClient) {
                     }
                 }
             }
-            // 视频/电话图标占位
-            Text("🎥  📞", color = Color.White, fontSize = 18.sp)
+
+            Text("📹  📞", color = Color.White, fontSize = 18.sp)
         }
 
         Divider(color = Color(0xFF262626), thickness = 0.5.dp)
 
-        // --- 2. 聊天记录区 ---
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
@@ -136,7 +235,6 @@ fun ChatScreen(client: OkHttpClient) {
             }
         }
 
-        // --- 3. IG 风格底部输入框 ---
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -144,19 +242,17 @@ fun ChatScreen(client: OkHttpClient) {
                 .imePadding(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 相机图标占位
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF0095F6)), // IG 蓝
+                    .background(Color(0xFF0095F6)),
                 contentAlignment = Alignment.Center
             ) {
                 Text("📷", color = Color.White, fontSize = 16.sp)
             }
             Spacer(modifier = Modifier.width(12.dp))
 
-            // 胶囊输入框
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -173,7 +269,7 @@ fun ChatScreen(client: OkHttpClient) {
 
                 if (inputText.isNotBlank()) {
                     Text(
-                        "發送",
+                        "发送",
                         color = Color(0xFF0095F6),
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
@@ -184,46 +280,54 @@ fun ChatScreen(client: OkHttpClient) {
                                 isTyping = true
                                 messages.add(ChatMessage("assistant", ""))
 
-                                sendMessage(client, messages, currentScenario, onUpdate = { newText ->
-                                    val lastIndex = messages.lastIndex
-                                    messages[lastIndex] = messages[lastIndex].copy(
-                                        content = messages[lastIndex].content + newText
-                                    )
-                                }, onComplete = { isTyping = false })
+                                sendMessage(
+                                    client = client,
+                                    messageHistory = messages,
+                                    scenario = currentScenario,
+                                    onUpdate = { newText ->
+                                        val lastIndex = messages.lastIndex
+                                        messages[lastIndex] = messages[lastIndex].copy(
+                                            content = messages[lastIndex].content + newText
+                                        )
+                                    },
+                                    onComplete = { isTyping = false }
+                                )
                             }
                             .padding(start = 8.dp)
                     )
                 } else {
-                    Text("🎙️", modifier = Modifier.padding(start = 8.dp))
+                    Text("🎤", modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }
     }
 }
 
-// 提取的无边框文本输入框
 @Composable
-fun BasicTextFieldIG(value: String, onValueChange: (String) -> Unit, modifier: Modifier, isTyping: Boolean) {
+fun BasicTextFieldIG(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier,
+    isTyping: Boolean
+) {
     Box(modifier = modifier, contentAlignment = Alignment.CenterStart) {
         if (value.isEmpty()) {
-            Text("發送消息...", color = Color.Gray)
+            Text("发送消息...", color = Color.Gray)
         }
         androidx.compose.foundation.text.BasicTextField(
             value = value,
             onValueChange = onValueChange,
             enabled = !isTyping,
-            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 16.sp),
+            textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
             modifier = Modifier.fillMaxWidth()
         )
     }
 }
 
-// IG 风格的气泡
 @Composable
 fun ChatBubbleIG(message: ChatMessage, aiAvatar: String) {
     val isUser = message.role == "user"
 
-    // IG 标志性的渐变色（紫 -> 蓝）
     val igGradient = Brush.linearGradient(
         colors = listOf(Color(0xFF833AB4), Color(0xFF9146FF), Color(0xFF0095F6))
     )
@@ -234,9 +338,11 @@ fun ChatBubbleIG(message: ChatMessage, aiAvatar: String) {
         verticalAlignment = Alignment.Bottom
     ) {
         if (!isUser) {
-            // AI 头像
             Box(
-                modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFF262626)),
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF262626)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(aiAvatar, fontSize = 16.sp)
@@ -248,7 +354,13 @@ fun ChatBubbleIG(message: ChatMessage, aiAvatar: String) {
             modifier = Modifier
                 .widthIn(max = 260.dp)
                 .background(
-                    brush = if (isUser) igGradient else Brush.linearGradient(listOf(Color(0xFF262626), Color(0xFF262626))),
+                    brush = if (isUser) {
+                        igGradient
+                    } else {
+                        Brush.linearGradient(
+                            listOf(Color(0xFF262626), Color(0xFF262626))
+                        )
+                    },
                     shape = RoundedCornerShape(18.dp)
                 )
                 .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -258,7 +370,13 @@ fun ChatBubbleIG(message: ChatMessage, aiAvatar: String) {
     }
 }
 
-fun sendMessage(client: OkHttpClient, messageHistory: List<ChatMessage>, scenario: String, onUpdate: (String) -> Unit, onComplete: () -> Unit) {
+fun sendMessage(
+    client: OkHttpClient,
+    messageHistory: List<ChatMessage>,
+    scenario: String,
+    onUpdate: (String) -> Unit,
+    onComplete: () -> Unit
+) {
     val jsonArray = JSONArray()
     for (i in 0 until messageHistory.size - 1) {
         val obj = JSONObject()
@@ -278,16 +396,20 @@ fun sendMessage(client: OkHttpClient, messageHistory: List<ChatMessage>, scenari
 
     factory.newEventSource(request, object : EventSourceListener() {
         override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-            if (data == "[DONE]") onComplete()
-            else {
+            if (data == "[DONE]") {
+                onComplete()
+            } else {
                 try {
                     val text = JSONObject(data).getString("text")
                     onUpdate(text)
-                } catch (e: Exception) { e.printStackTrace() }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
+
         override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-            onUpdate("\n[網絡錯誤]")
+            onUpdate("\n[连接错误]")
             onComplete()
         }
     })

@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Word temp files
+~$*.docx
+
+# Android build outputs
+android_app/build/
+android_app/app/build/
+android_app/.gradle/
+android_app/local.properties
