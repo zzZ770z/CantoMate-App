@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.cantomate.feature.translation.ui.TranslationScreen
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -68,6 +69,7 @@ fun AppRoot(client: OkHttpClient) {
         ) {
             val chatSelected = currentPage == "chat"
             val gameSelected = currentPage == "game"
+            val translationSelected = currentPage == "translation"
 
             Box(
                 modifier = Modifier
@@ -90,12 +92,23 @@ fun AppRoot(client: OkHttpClient) {
             ) {
                 Text("配對遊戲", color = if (gameSelected) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
             }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(if (translationSelected) Color(0xFF00B894) else Color.Transparent, RoundedCornerShape(20.dp))
+                    .clickable { currentPage = "translation" }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("翻譯", color = if (translationSelected) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
+            }
         }
 
-        if (currentPage == "chat") {
-            ChatScreen(client)
-        } else {
-            GameScreen(client)
+        when (currentPage) {
+            "chat" -> ChatScreen(client)
+            "game" -> GameScreen(client)
+            else -> TranslationScreen()
         }
     }
 }
