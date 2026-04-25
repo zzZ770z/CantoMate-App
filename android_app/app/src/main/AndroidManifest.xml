@@ -13,6 +13,11 @@
         android:theme="@style/Theme.CantoMate"
         android:usesCleartextTraffic="true">
         <activity
+            android:name=".feature.translation.TranslationActivity"
+            android:exported="false"
+            android:label="翻译演示"
+            android:theme="@style/Theme.CantoMate" />
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"

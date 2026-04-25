@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # 引入你刚刚写好的 chat 路由
 from routers import chat
 from routers import game
+from routers import translate
 
 # 1. 初始化 FastAPI 应用
 app = FastAPI(title="CantoMate API")
@@ -19,6 +20,7 @@ app.add_middleware(
 # 3. 挂载路由 (把 chat 的功能挂到 /api 下面)
 app.include_router(chat.router, prefix="/api")
 app.include_router(game.router, prefix="/api")
+app.include_router(translate.router, prefix="/api")
 
 if __name__ == "__main__":
     import uvicorn
