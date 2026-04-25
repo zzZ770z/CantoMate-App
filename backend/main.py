@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import chat
 from routers import game
 from routers import translate
+from routers import jyutping
 
 # 1. 初始化 FastAPI 应用
 app = FastAPI(title="CantoMate API")
@@ -21,6 +22,7 @@ app.add_middleware(
 app.include_router(chat.router, prefix="/api")
 app.include_router(game.router, prefix="/api")
 app.include_router(translate.router, prefix="/api")
+app.include_router(jyutping.router)
 
 if __name__ == "__main__":
     import uvicorn

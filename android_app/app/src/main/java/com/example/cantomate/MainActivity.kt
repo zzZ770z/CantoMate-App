@@ -33,6 +33,9 @@ import okhttp3.sse.EventSources
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+import com.example.cantomate.jyutping.JyutpingChartScreen
+import com.example.cantomate.jyutping.JyutpingChartViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 data class ChatMessage(val role: String, val content: String)
 data class GameWordItem(val id: Int, val text: String)
@@ -59,6 +62,8 @@ class MainActivity : ComponentActivity() {
 fun AppRoot(client: OkHttpClient) {
     var currentPage by remember { mutableStateOf("chat") }
 
+    val jyutpingViewModel: JyutpingChartViewModel = viewModel()
+
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -70,6 +75,7 @@ fun AppRoot(client: OkHttpClient) {
             val chatSelected = currentPage == "chat"
             val gameSelected = currentPage == "game"
             val translationSelected = currentPage == "translation"
+            val jyutpingSelected = currentPage == "jyutping"
 
             Box(
                 modifier = Modifier
@@ -103,12 +109,25 @@ fun AppRoot(client: OkHttpClient) {
             ) {
                 Text("翻譯", color = if (translationSelected) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
             }
+
+            // 粤拼
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(if (jyutpingSelected) Color(0xFFFF9800) else Color.Transparent, RoundedCornerShape(20.dp))
+                    .clickable { currentPage = "jyutping" }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("粵拼", color = if (jyutpingSelected) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
+            }
         }
 
         when (currentPage) {
             "chat" -> ChatScreen(client)
             "game" -> GameScreen(client)
-            else -> TranslationScreen()
+            "translation" -> TranslationScreen()
+            "jyutping" -> JyutpingChartScreen(viewModel = jyutpingViewModel, context = androidx.compose.ui.platform.LocalContext.current)
         }
     }
 }
