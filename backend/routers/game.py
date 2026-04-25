@@ -1,7 +1,9 @@
 import json
+import importlib
 import os
 import random
 import re
+from typing import Any, cast
 from fastapi import APIRouter, HTTPException
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -17,6 +19,9 @@ client = OpenAI(
 	api_key=os.getenv("DEEPSEEK_API_KEY"),
 	base_url="https://api.deepseek.com"
 )
+
+_s2t_converter: Any = None
+_CONVERTER_UNAVAILABLE = "CONVERTER_UNAVAILABLE"
 
 
 def _extract_json(content: str) -> dict:
@@ -39,11 +44,33 @@ def _fallback_pairs() -> list[dict]:
 	]
 
 
+def _to_traditional(text: str) -> str:
+	# Ensure right-side Cantonese is always Traditional Chinese.
+	global _s2t_converter
+	if _s2t_converter is None:
+		try:
+			opencc_module = importlib.import_module("opencc")
+			_s2t_converter = opencc_module.OpenCC("s2t")
+		except Exception:
+			_s2t_converter = _CONVERTER_UNAVAILABLE
+
+	if _s2t_converter == _CONVERTER_UNAVAILABLE:
+		return text
+
+	converter = cast(Any, _s2t_converter)
+	return converter.convert(text)
+
+
 @router.post("/game/start", response_model=GameStartResponse)
 async def start_game():
 	prompt = (
-		"请生成 5 对适合初学者的普通话-粤语词汇。"
-		"返回严格 JSON，不要 Markdown，不要解释。"
+		"你要为粤语配对游戏生成 5 对普通话-粤语词汇。"
+		"难度要求：适合 A2-B1 学习者，不能过于基础。"
+		"多样性要求：5 对词必须来自至少 4 个不同生活场景（如饮食、交通、职场、社交、情绪、购物、校园）。"
+		"去重要求：普通话词和粤语词都不能重复，且不能是同义近义的改写。"
+		"黑名单：不要使用‘谢谢/多谢、哪里/边度、为什么/点解、多少钱/几多钱、不要/唔好’。"
+		"词语要求：每项尽量 2-4 字，优先真实香港日常口语表达，粤语使用繁体字。"
+		"输出要求：仅返回严格 JSON，不要 Markdown，不要解释。"
 		"格式必须是：{\"pairs\":[{\"mandarin\":\"...\",\"cantonese\":\"...\"}]}"
 	)
 
@@ -66,7 +93,7 @@ async def start_game():
 		cleaned = []
 		for item in raw_pairs:
 			mandarin = str(item.get("mandarin", "")).strip()
-			cantonese = str(item.get("cantonese", "")).strip()
+			cantonese = _to_traditional(str(item.get("cantonese", "")).strip())
 			if mandarin and cantonese:
 				cleaned.append({"mandarin": mandarin, "cantonese": cantonese})
 
@@ -82,7 +109,7 @@ async def start_game():
 			raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 	indexed_pairs = [
-		{"id": idx + 1, "mandarin": p["mandarin"], "cantonese": p["cantonese"]}
+		{"id": idx + 1, "mandarin": p["mandarin"], "cantonese": _to_traditional(p["cantonese"])}
 		for idx, p in enumerate(pairs)
 	]
 
